@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DO YOU FEEL LUCKY?</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .ticket-wrapper {
+      background: radial-gradient(circle at top, #444 0, #111 60%);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+    }
+
+    .ticket {
+      width: 360px;
+      height: 520px;
+      background: linear-gradient(135deg, #1b1f3b, #3b1b2f);
+      border-radius: 12px;
+      border: 4px solid #f5d46b;
+      box-shadow: 0 0 0 3px #333;
+      position: relative;
+      overflow: hidden;
+      color: #fff;
+    }
+
+    .ticket-header {
+      text-align: center;
+      padding: 16px 10px 8px;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+      background: linear-gradient(90deg, #f5d46b, #f7f0c3, #f5d46b);
+      color: #2b1b1b;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+      font-size: 20px;
+    }
+
+    .ticket-subtitle {
+      text-align: center;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      color: rgba(0, 0, 0, 0.7);
+    }
+
+    .ticket-body {
+      padding: 10px 16px 16px;
+      position: relative;
+      height: calc(100% - 70px);
+      box-sizing: border-box;
+    }
+
+    .instructions {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #f7e9a8;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .fake-prizes {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #f3d98b;
+      margin-bottom: 8px;
+    }
+
+    .fake-prizes span {
+      background: rgba(0, 0, 0, 0.35);
+      padding: 4px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(245, 212, 107, 0.4);
+    }
+
+    .scratch-area {
+      position: relative;
+      margin: 10px auto 12px;
+      width: 100%;
+      max-width: 320px;
+      height: 220px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 2px solid #f5d46b;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.7);
+      background: #111;
+    }
+
+    .hidden-content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #f7f7f7;
+      text-align: center;
+      padding: 10px;
+      box-sizing: border-box;
+      background: radial-gradient(circle at center, #1f3b2b 0, #050608 70%);
+    }
+
+    .hidden-label {
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #f3d98b;
+      margin-bottom: 6px;
+    }
+
+    .coords {
+      font-family: "Courier New", monospace;
+      font-size: 18px;
+      line-height: 1.4;
+      letter-spacing: 1px;
+    }
+
+    .coords span {
+      display: block;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      cursor: crosshair;
+    }
+
+    .footer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .barcode {
+      width: 120px;
+      height: 32px;
+      background-image: repeating-linear-gradient(
+        to right,
+        #000 0,
+        #000 2px,
+        transparent 2px,
+        transparent 4px
+      );
+      background-color: #fff;
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .barcode::after {
+      content: "04262026";
+      position: absolute;
+      bottom: -2px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 8px;
+      letter-spacing: 2px;
+      color: #000;
+      background: #fff;
+      padding: 0 2px;
+    }
+
+    .legal {
+      text-align: right;
+      max-width: 180px;
+      line-height: 1.3;
+    }
+
+    .legal span {
+      display: block;
+    }
+
+    .reveal-banner {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #f3d98b;
+      border: 1px solid rgba(243, 217, 139, 0.6);
+    }
+
+    .auto-revealed {
+      animation: glow 1.2s ease-out 1;
+    }
+
+    @keyframes glow {
+      0% {
+        box-shadow: 0 0 0 rgba(245, 212, 107, 0.0);
+      }
+      40% {
+        box-shadow: 0 0 20px rgba(245, 212, 107, 0.9);
+      }
+      100% {
+        box-shadow: 0 0 0 rgba(245, 212, 107, 0.0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="ticket-wrapper">
+    <div class="ticket">
+      <div class="ticket-header">
+        DO YOU FEEL LUCKY?
+        <div class="ticket-subtitle">PREMIUM SCRATCH &amp; REVEAL EDITION</div>
+      </div>
+      <div class="ticket-body">
+        <div class="instructions">
+          SCRATCH THE PANEL TO REVEAL YOUR "WINNING" LOCATION
+        </div>
+
+        <div class="fake-prizes">
+          <span>TOP PRIZE: BRAGGING RIGHTS</span>
+          <span>ODDS: 1 IN 1</span>
+        </div>
+
+        <div class="scratch-area" id="scratchArea">
+          <div class="hidden-content" id="hiddenContent">
+            <div class="hidden-label">WINNING COORDINATES</div>
+            <div class="coords">
+              <span>N 33 40.700</span>
+              <span>W 117 52.616</span>
+            </div>
+          </div>
+          <canvas id="scratchCanvas"></canvas>
+          <div class="reveal-banner" id="revealBanner">
+            SCRATCH TO REVEAL
+          </div>
+        </div>
+
+        <div class="footer-row">
+          <div class="barcode"></div>
+          <div class="legal">
+            <span>NO PURCHASE NECESSARY.</span>
+            <span>NOT A REAL LOTTERY TICKET.</span>
+            <span>FOR ENTERTAINMENT &amp; PUZZLE USE ONLY.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const canvas = document.getElementById("scratchCanvas");
+      const scratchArea = document.getElementById("scratchArea");
+      const revealBanner = document.getElementById("revealBanner");
+      const hiddenContent = document.getElementById("hiddenContent");
+
+      const ctx = canvas.getContext("2d");
+      let isDrawing = false;
+      let lastX = 0;
+      let lastY = 0;
+      const brushRadius = 18;
+      const revealThreshold = 0.6; // 60% scratched
+
+      function resizeCanvas() {
+        const rect = scratchArea.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        drawScratchLayer();
+      }
+
+      function drawScratchLayer() {
+        const w = canvas.width;
+        const h = canvas.height;
+
+        // Base metallic gray
+        const gradient = ctx.createLinearGradient(0, 0, w, h);
+        gradient.addColorStop(0, "#c0c3c7");
+        gradient.addColorStop(0.5, "#f5f5f5");
+        gradient.addColorStop(1, "#9a9da1");
+
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, w, h);
+
+        // Add noise / streaks
+        const noiseDensity = 2200;
+        for (let i = 0; i < noiseDensity; i++) {
+          const x = Math.random() * w;
+          const y = Math.random() * h;
+          const alpha = Math.random() * 0.35;
+          ctx.fillStyle = "rgba(255,255,255," + alpha + ")";
+          ctx.fillRect(x, y, 1, 1);
+        }
+
+        // Diagonal brushed lines
+        ctx.strokeStyle = "rgba(255,255,255,0.18)";
+        ctx.lineWidth = 1;
+        for (let i = -h; i < w; i += 6) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i + h, h);
+          ctx.stroke();
+        }
+
+        ctx.globalCompositeOperation = "destination-out";
+      }
+
+      function getPointerPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        let clientX, clientY;
+
+        if (e.touches && e.touches.length > 0) {
+          clientX = e.touches[0].clientX;
+          clientY = e.touches[0].clientY;
+        } else {
+          clientX = e.clientX;
+          clientY = e.clientY;
+        }
+
+        return {
+          x: clientX - rect.left,
+          y: clientY - rect.top
+        };
+      }
+
+      function scratch(e) {
+        if (!isDrawing) return;
+        e.preventDefault();
+
+        const pos = getPointerPos(e);
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.lineWidth = brushRadius * 2;
+
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+
+        lastX = pos.x;
+        lastY = pos.y;
+
+        checkReveal();
+      }
+
+      function startScratch(e) {
+        e.preventDefault();
+        isDrawing = true;
+        const pos = getPointerPos(e);
+        lastX = pos.x;
+        lastY = pos.y;
+      }
+
+      function endScratch(e) {
+        if (!isDrawing) return;
+        e.preventDefault();
+        isDrawing = false;
+        checkReveal();
+      }
+
+      function checkReveal() {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = imageData.data;
+        let transparentCount = 0;
+
+        for (let i = 3; i < pixels.length; i += 4) {
+          if (pixels[i] === 0) transparentCount++;
+        }
+
+        const totalPixels = canvas.width * canvas.height;
+        const ratio = transparentCount / totalPixels;
+
+        if (ratio > revealThreshold) {
+          // Clear remaining layer and mark as revealed
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          canvas.style.pointerEvents = "none";
+          revealBanner.textContent = "LOCATION REVEALED";
+          hiddenContent.classList.add("auto-revealed");
+        }
+      }
+
+      // Event listeners
+      canvas.addEventListener("mousedown", startScratch);
+      canvas.addEventListener("mousemove", scratch);
+      canvas.addEventListener("mouseup", endScratch);
+      canvas.addEventListener("mouseleave", endScratch);
+
+      canvas.addEventListener("touchstart", startScratch, { passive: false });
+      canvas.addEventListener("touchmove", scratch, { passive: false });
+      canvas.addEventListener("touchend", endScratch, { passive: false });
+      canvas.addEventListener("touchcancel", endScratch, { passive: false });
+
+      window.addEventListener("resize", resizeCanvas);
+
+      // Init
+      resizeCanvas();
+    })();
+  </script>
+</body>
+</html>
