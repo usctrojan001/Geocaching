@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Cache &amp; Cash Explorer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #070b14;
+      color: #f8fafc;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* Ambient deep space / radar grid background */
+    .bg-cosmos {
+      background:
+        radial-gradient(circle at 50% 52%, rgba(20, 45, 58, 0.45) 0%, rgba(7, 11, 20, 0.95) 62%, #050810 100%);
+    }
+
+    .bg-grid {
+      background-image:
+        linear-gradient(to right, rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    /* Fluorescent Bubble Styling */
+    .neon-bubble {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      cursor: pointer;
+      padding: 6px 12px;
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+                  box-shadow 0.25s ease,
+                  background-color 0.25s ease,
+                  opacity 0.3s ease;
+      will-change: transform;
+      touch-action: manipulation;
+    }
+
+    /* Glossy specular reflection inside each bubble */
+    .neon-bubble::before {
+      content: '';
+      position: absolute;
+      top: 10%;
+      left: 16%;
+      width: 34%;
+      height: 20%;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 75%);
+      transform: rotate(-22deg);
+      pointer-events: none;
+    }
+
+    .neon-bubble:hover,
+    .neon-bubble:focus-visible {
+      z-index: 50 !important;
+      outline: none;
+    }
+
+    .neon-bubble.dimmed {
+      opacity: 0.16;
+      filter: grayscale(0.6);
+    }
+
+    .neon-bubble.highlighted {
+      z-index: 45 !important;
+    }
+
+    /* Central Circle Arena Pulse */
+    @keyframes ringPulse {
+      0%, 100% {
+        box-shadow:
+          0 0 40px rgba(0, 243, 255, 0.14),
+          inset 0 0 45px rgba(57, 255, 20, 0.10);
+      }
+      50% {
+        box-shadow:
+          0 0 65px rgba(0, 243, 255, 0.24),
+          inset 0 0 65px rgba(57, 255, 20, 0.18);
+      }
+    }
+
+    .center-arena {
+      animation: ringPulse 6s ease-in-out infinite;
+    }
+
+    /* Modal entrance animation */
+    @keyframes modalPop {
+      0% {
+        opacity: 0;
+        transform: scale(0.9) translateY(12px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .modal-animate {
+      animation: modalPop 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* 3D Signal the Frog Mascot Widget */
+    #signalMascotContainer {
+      position: fixed;
+      bottom: 14px;
+      right: 14px;
+      width: 176px;
+      height: 205px;
+      z-index: 35;
+      pointer-events: auto;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    @media (max-width: 640px) {
+      #signalMascotContainer {
+        width: 126px;
+        height: 150px;
+        bottom: 42px;
+        right: 8px;
+      }
+    }
+
+    #signalCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.65));
+    }
+
+    /* Speech Bubble above Signal the Frog */
+    #signalSpeechBubble {
+      position: absolute;
+      bottom: calc(100% - 8px);
+      right: 10px;
+      width: 215px;
+      background: rgba(9, 15, 29, 0.92);
+      border: 1.5px solid #39ff14;
+      box-shadow: 0 0 18px rgba(57, 255, 20, 0.35), inset 0 0 10px rgba(57, 255, 20, 0.12);
+      color: #f0fdf4;
+      font-size: 11.5px;
+      line-height: 1.35;
+      font-weight: 600;
+      padding: 9px 12px;
+      border-radius: 16px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(8px) scale(0.92);
+      transform-origin: bottom right;
+      transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    #signalSpeechBubble.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    #signalSpeechBubble::after {
+      content: '';
+      position: absolute;
+      bottom: -7px;
+      right: 34px;
+      width: 12px;
+      height: 12px;
+      background: rgba(9, 15, 29, 0.95);
+      border-right: 1.5px solid #39ff14;
+      border-bottom: 1.5px solid #39ff14;
+      transform: rotate(45deg);
+    }
+
+    /* Custom scrollbar for definition body if needed on tiny screens */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.3);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-cosmos bg-grid relative w-full h-full overflow-hidden">
+
+  <!-- Top Navigation / Controls Header -->
+  <header class="fixed top-0 left-0 right-0 z-30 pointer-events-none px-3 pt-3 sm:px-6 sm:pt-4">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5">
+      <!-- Title & Subtitle -->
+      <div class="pointer-events-auto flex items-center gap-3 bg-slate-950/75 border border-slate-800/80 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg">
+        <div class="w-2.5 h-2.5 rounded-full bg-[#39ff14] shadow-[0_0_10px_#39ff14] animate-pulse"></div>
+        <div>
+          <h1 class="text-sm sm:text-base font-extrabold tracking-tight bg-gradient-to-r from-[#00f3ff] via-[#39ff14] to-[#ff2a85] bg-clip-text text-transparent">
+            Cache &amp; Cash Explorer
+          </h1>
+          <p class="text-[11px] text-slate-400 hidden md:block">
+            Tap or click any glowing bubble to view its definition (38 terms)
+          </p>
+        </div>
+      </div>
+
+      <!-- Search & Orbit Controls -->
+      <div class="pointer-events-auto flex items-center gap-2 w-full sm:w-auto justify-center">
+        <!-- Search Input -->
+        <div class="relative flex-1 sm:w-56 md:w-64">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.3-4.3"></path>
+          </svg>
+          <input
+            id="searchInput"
+            type="text"
+            placeholder="Filter 38 terms..."
+            aria-label="Filter terms"
+            class="w-full bg-slate-950/80 border border-slate-700/80 focus:border-[#00f3ff] text-slate-100 placeholder-slate-400 text-xs sm:text-sm rounded-xl pl-9 pr-8 py-2 outline-none backdrop-blur-md transition-colors"
+          />
+          <button
+            id="clearSearchBtn"
+            title="Clear filter"
+            class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-bold px-1"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Pause / Play Orbit Button -->
+        <button
+          id="toggleOrbitBtn"
+          type="button"
+          class="flex items-center gap-1.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-700/80 hover:border-[#00f3ff]/70 text-slate-200 text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-xl backdrop-blur-md transition-all active:scale-95 shrink-0"
+          aria-pressed="false"
+        >
+          <span id="orbitIcon" class="text-[#00f3ff]">❚❚</span>
+          <span id="orbitLabel">Pause</span>
+        </button>
+
+        <!-- Reset View Button -->
+        <button
+          id="resetViewBtn"
+          type="button"
+          title="Reset filter and resume orbit"
+          class="flex items-center gap-1 bg-slate-950/80 hover:bg-slate-900 border border-slate-700/80 hover:border-[#39ff14]/70 text-slate-200 text-xs sm:text-sm font-semibold px-3 py-2 rounded-xl backdrop-blur-md transition-all active:scale-95 shrink-0"
+        >
+          <span class="text-[#39ff14]">↺</span>
+          <span class="hidden md:inline">Reset</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Orbital Stage -->
+  <main id="stage" class="relative w-full h-full flex items-center justify-center overflow-hidden">
+
+    <!-- Central Geocaching Circle Background -->
+    <div
+      id="centerCircle"
+      class="center-arena relative rounded-full border-2 border-cyan-400/30 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center pointer-events-none z-0 transition-all duration-300"
+    >
+      <!-- Subtle Concentric Radar Rings -->
+      <div class="absolute inset-[14%] rounded-full border border-dashed border-emerald-400/20"></div>
+      <div class="absolute inset-[30%] rounded-full border border-cyan-400/15"></div>
+
+      <!-- Custom Crisp SVG Geocaching Emblem Watermark -->
+      <svg
+        id="geocachingLogo"
+        viewBox="0 0 240 240"
+        class="w-[64%] h-[64%] opacity-35 drop-shadow-[0_0_24px_rgba(57,255,20,0.28)]"
+        aria-label="Geocaching Emblem"
+      >
+        <defs>
+          <linearGradient id="gcGreen" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#4ade80" />
+            <stop offset="100%" stop-color="#15803d" />
+          </linearGradient>
+          <linearGradient id="gcGold" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#fde047" />
+            <stop offset="100%" stop-color="#d97706" />
+          </linearGradient>
+          <linearGradient id="gcBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#38bdf8" />
+            <stop offset="100%" stop-color="#1d4ed8" />
+          </linearGradient>
+          <linearGradient id="gcOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#fb923c" />
+            <stop offset="100%" stop-color="#c2410c" />
+          </linearGradient>
+        </defs>
+
+        <!-- Outer Compass Circle -->
+        <circle cx="120" cy="120" r="112" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-opacity="0.55" />
+        <circle cx="120" cy="120" r="103" fill="rgba(6, 78, 59, 0.22)" stroke="#38bdf8" stroke-width="1" stroke-opacity="0.35" />
+
+        <!-- Four-Quadrant Geocaching Rounded Diamond / Square Emblem -->
+        <g transform="translate(120, 120)">
+          <!-- Top Quadrant (Yellow/Gold - Flag / Treasure Beacon) -->
+          <path
+            d="M 0,-82 L 42,-40 L 0,-4 L -42,-40 Z"
+            fill="url(#gcGold)"
+            stroke="#070b14"
+            stroke-width="3"
+            stroke-linejoin="round"
+          />
+          <!-- Flag icon inside Top Quadrant -->
+          <path d="M -7,-54 L -7,-28 M -7,-54 L 13,-47 L -7,-40" fill="#070b14" stroke="#070b14" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+
+          <!-- Right Quadrant (Green - Forest / Nature) -->
+          <path
+            d="M 46,-36 L 84,0 L 46,36 L 6,0 Z"
+            fill="url(#gcGreen)"
+            stroke="#070b14"
+            stroke-width="3"
+            stroke-linejoin="round"
+          />
+          <!-- Tree / Compass Point inside Right Quadrant -->
+          <path d="M 46,-13 L 57,5 L 35,5 Z M 46,5 L 46,13" fill="#070b14" stroke="#070b14" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+
+          <!-- Bottom Quadrant (Blue - Water / Global GPS) -->
+          <path
+            d="M 0,4 L 42,40 L 0,82 L -42,40 Z"
+            fill="url(#gcBlue)"
+            stroke="#070b14"
+            stroke-width="3"
+            stroke-linejoin="round"
+          />
+          <!-- Wave / Globe lines inside Bottom Quadrant -->
+          <path d="M -14,37 Q -7,31 0,37 T 14,37 M -11,47 Q -5,42 0,47 T 11,47" fill="none" stroke="#070b14" stroke-width="2.6" stroke-linecap="round" />
+
+          <!-- Left Quadrant (Orange - Community / Explorer) -->
+          <path
+            d="M -46,-36 L -6,0 L -46,36 L -84,0 Z"
+            fill="url(#gcOrange)"
+            stroke="#070b14"
+            stroke-width="3"
+            stroke-linejoin="round"
+          />
+          <!-- Stylized Explorer / Container inside Left Quadrant -->
+          <circle cx="-46" cy="-7" r="5.5" fill="#070b14" />
+          <path d="M -56,11 C -56,3 -36,3 -36,11" fill="none" stroke="#070b14" stroke-width="2.8" stroke-linecap="round" />
+
+          <!-- Center Crosshair Core -->
+          <circle cx="0" cy="0" r="10" fill="#070b14" stroke="#4ade80" stroke-width="2.5" />
+          <circle cx="0" cy="0" r="3" fill="#4ade80" />
+        </g>
+
+        <!-- Cardinal Direction Ticks -->
+        <g stroke="#94a3b8" stroke-width="2" stroke-opacity="0.6">
+          <line x1="120" y1="2" x2="120" y2="12" />
+          <line x1="120" y1="228" x2="120" y2="238" />
+          <line x1="2" y1="120" x2="12" y2="120" />
+          <line x1="228" y1="120" x2="238" y2="120" />
+        </g>
+
+        <!-- Curved Brand Label -->
+        <text
+          x="120"
+          y="222"
+          text-anchor="middle"
+          fill="#86efac"
+          font-size="11"
+          font-weight="800"
+          letter-spacing="3.5"
+          opacity="0.85"
+        >
+          GEOCACHING
+        </text>
+      </svg>
+    </div>
+
+    <!-- Container for Floating Neon Bubbles -->
+    <div id="bubbleLayer" class="absolute inset-0 z-10 overflow-hidden"></div>
+  </main>
+
+  <!-- Bottom Legend / Hint Pill -->
+  <footer class="fixed bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-3 w-full max-w-xl flex justify-center">
+    <div class="pointer-events-auto flex flex-wrap items-center justify-center gap-x-4 gap-y-1 bg-slate-950/75 border border-slate-800/80 backdrop-blur-md px-4 py-1.5 rounded-full text-[11px] text-slate-300 shadow-lg">
+      <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#39ff14] shadow-[0_0_6px_#39ff14]"></span>Geocaching</span>
+      <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#00f3ff] shadow-[0_0_6px_#00f3ff]"></span>Tech &amp; Computing</span>
+      <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#ffe600] shadow-[0_0_6px_#ffe600]"></span>Finance &amp; Idioms</span>
+      <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#ff2a85] shadow-[0_0_6px_#ff2a85]"></span>Military &amp; Pop Culture</span>
+    </div>
+  </footer>
+
+  <!-- Interactive 3D Signal the Frog Mascot (Bottom-Right Corner) -->
+  <aside
+    id="signalMascotContainer"
+    role="button"
+    tabindex="0"
+    aria-label="Signal the Frog 3D Mascot — click or tap for a geocaching greeting"
+  >
+    <div id="signalSpeechBubble" aria-live="polite">
+      TFTC! Tap any glowing bubble to uncover its definition!
+    </div>
+    <canvas id="signalCanvas"></canvas>
+  </aside>
+
+  <!-- Definition Popup Modal -->
+  <div
+    id="definitionModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modalTitle"
+    class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md"
+  >
+    <div
+      id="modalCard"
+      class="modal-animate relative w-full max-w-lg rounded-3xl bg-slate-900/95 border-2 p-6 sm:p-7 shadow-2xl text-slate-100"
+    >
+      <!-- Top Row: Category Badge & Close Button -->
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <span
+          id="modalCategory"
+          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border"
+        >
+          Category
+        </span>
+
+        <button
+          id="closeModalBtn"
+          type="button"
+          aria-label="Close definition"
+          class="w-9 h-9 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-lg font-bold"
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- Term Heading -->
+      <h2 id="modalTitle" class="text-2xl sm:text-3xl font-extrabold tracking-tight mb-3 text-white">
+        Term Title
+      </h2>
+
+      <!-- Term Counter -->
+      <div id="modalIndex" class="text-xs font-medium text-slate-400 mb-4">
+        Term 1 of 38
+      </div>
+
+      <!-- Definition Body -->
+      <div class="bg-slate-950/70 border border-slate-800/90 rounded-2xl p-4 sm:p-5 mb-6 max-h-[45vh] overflow-y-auto">
+        <p id="modalDefinition" class="text-sm sm:text-base leading-relaxed text-slate-200">
+          Definition goes here.
+        </p>
+      </div>
+
+      <!-- Navigation Footer (Prev / Next) -->
+      <div class="flex items-center justify-between gap-3">
+        <button
+          id="prevTermBtn"
+          type="button"
+          class="flex-1 py-2.5 px-4 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 text-xs sm:text-sm font-semibold text-slate-200 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+        >
+          <span>←</span>
+          <span>Previous</span>
+        </button>
+
+        <button
+          id="nextTermBtn"
+          type="button"
+          class="flex-1 py-2.5 px-4 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 text-xs sm:text-sm font-semibold text-slate-200 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+        >
+          <span>Next</span>
+          <span>→</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Complete dataset of all 38 terms extracted from the image with definitions and categories
+    const TERMS_DATA = [
+      {
+        term: "Arms Cache",
+        category: "Military & History",
+        definition: "A hidden stockpile of weapons, ammunition, or military supplies stored for future retrieval."
+      },
+      {
+        term: "Browser Cache",
+        category: "Tech & Computing",
+        definition: "Temporary storage used by a web browser to save images, scripts, and HTML locally so pages load faster on repeat visits."
+      },
+      {
+        term: "Cash-and-Carry",
+        category: "Finance & Idioms",
+        definition: "A commercial system where goods are paid for in full at the time of purchase and transported away by the buyer."
+      },
+      {
+        term: "Cash Cow",
+        category: "Finance & Idioms",
+        definition: "A business, product, or asset that generates a steady, reliable, and high return of cash flow over time."
+      },
+      {
+        term: "Cash Flow",
+        category: "Finance & Idioms",
+        definition: "The net amount of cash and cash-equivalents moving into and out of a business or personal account."
+      },
+      {
+        term: "Cash In (one’s) Chips",
+        category: "Finance & Idioms",
+        definition: "An idiom meaning to quit, retire, sell off assets for cash, or—figuratively—to pass away."
+      },
+      {
+        term: "Cash is King",
+        category: "Finance & Idioms",
+        definition: "A financial maxim emphasizing that having physical cash or liquid assets on hand is more valuable than illiquid investments, especially during economic uncertainty."
+      },
+      {
+        term: "Cash on the Barrelhead",
+        category: "Finance & Idioms",
+        definition: "Payment made immediately in cash at the exact moment a purchase or transaction is completed."
+      },
+      {
+        term: "Cash Poor",
+        category: "Finance & Idioms",
+        definition: "Having substantial assets or property of value, but lacking liquid cash to cover immediate expenses."
+      },
+      {
+        term: "Cash Register",
+        category: "Finance & Idioms",
+        definition: "A mechanical or electronic device used at points of sale to calculate, record transactions, and securely store cash."
+      },
+      {
+        term: "Cash-Strapped",
+        category: "Finance & Idioms",
+        definition: "Experiencing an acute shortage of liquid money or available funds."
+      },
+      {
+        term: "Cache Container",
+        category: "Geocaching",
+        definition: "The physical waterproof vessel (such as an ammo can, bison tube, or lock-and-lock box) hidden at geocache coordinates to hold a logbook and trade items."
+      },
+      {
+        term: "Cache In Cache Out (CITO)",
+        category: "Geocaching",
+        definition: "An environmental initiative supported by the geocaching community focused on cleaning up parks, trails, and natural areas while geocaching."
+      },
+      {
+        term: "Cache Log",
+        category: "Geocaching",
+        definition: "The physical paper scroll or notebook inside a geocache container—as well as the online entry—where finders record the date and their username."
+      },
+      {
+        term: "Cache Name",
+        category: "Geocaching",
+        definition: "The unique title given to a geocache by its creator (hider) on its listing page."
+      },
+      {
+        term: "Cache Page",
+        category: "Geocaching",
+        definition: "The official online listing containing a geocache’s coordinates, difficulty/terrain ratings, description, hints, and recent finder logs."
+      },
+      {
+        term: "Challenge Cache",
+        category: "Geocaching",
+        definition: "A type of Mystery Cache that requires geocachers to meet a specific, verifiable geocaching-related qualification (e.g., finding a cache every day of the year) before logging a find."
+      },
+      {
+        term: "Clear the Cache",
+        category: "Tech & Computing",
+        definition: "The process of deleting temporary stored data from a browser, app, or hardware memory to free up space or fix loading issues."
+      },
+      {
+        term: "Cold, Hard Cash",
+        category: "Finance & Idioms",
+        definition: "Actual physical currency (banknotes and coins) as opposed to credit, checks, or digital promises to pay."
+      },
+      {
+        term: "Data Cache",
+        category: "Tech & Computing",
+        definition: "A high-speed data storage layer that holds a subset of frequently accessed data so future requests are served faster."
+      },
+      {
+        term: "EarthCache",
+        category: "Geocaching",
+        definition: "A special geological geocache with no physical container; visitors must visit a unique geological feature and answer educational questions to log a find."
+      },
+      {
+        term: "Event Cache",
+        category: "Geocaching",
+        definition: "A scheduled gathering of local geocachers to socialize, share stories, and discuss geocaching at specific coordinates and times."
+      },
+      {
+        term: "Geocache",
+        category: "Geocaching",
+        definition: "A hidden container or target located using GPS coordinates in the outdoor recreational activity of geocaching."
+      },
+      {
+        term: "Geocache Code",
+        category: "Geocaching",
+        definition: "The unique alphanumeric identifier (usually starting with 'GC') assigned to every geocache listing."
+      },
+      {
+        term: "Giga-Event Cache",
+        category: "Geocaching",
+        definition: "One of the rarest geocaching gatherings, attracting 5,000 or more attendees from around the world for multi-day activities."
+      },
+      {
+        term: "Johnny Cash",
+        category: "Pop Culture",
+        definition: "The iconic American country music singer-songwriter (1932–2003), known as 'The Man in Black,' famous for hits like 'Ring of Fire' and 'Folsom Prison Blues.'"
+      },
+      {
+        term: "Mega-Event Cache",
+        category: "Geocaching",
+        definition: "A large geocaching event attended by 500 or more people, often featuring vendors, workshops, and special activities."
+      },
+      {
+        term: "Memory Cache",
+        category: "Tech & Computing",
+        definition: "High-speed static RAM (SRAM) built into or near a CPU to store frequently used instructions and data for rapid access."
+      },
+      {
+        term: "Multi-cache",
+        category: "Geocaching",
+        definition: "A geocache involving two or more locations, where clues or coordinates found at initial stages lead to the final physical container."
+      },
+      {
+        term: "Mystery Cache",
+        category: "Geocaching",
+        definition: "A 'catch-all' geocache type that often involves solving puzzles, riddles, or field challenges to determine the true final coordinates."
+      },
+      {
+        term: "Night Cache",
+        category: "Geocaching",
+        definition: "A geocache designed to be found after dark, typically by following a trail of reflective tacks or markers using a flashlight."
+      },
+      {
+        term: "Project A.P.E. Cache",
+        category: "Geocaching",
+        definition: "A rare series of original geocaches hidden in 2001 in partnership with 20th Century Fox to promote the film 'Planet of the Apes,' containing special movie props."
+      },
+      {
+        term: "Partnership Cache",
+        category: "Geocaching",
+        definition: "A special promotional geocache created through an official collaboration between Geocaching HQ and another organization or brand."
+      },
+      {
+        term: "Speedy Cash",
+        category: "Finance & Idioms",
+        definition: "A well-known consumer financial services company offering payday loans, title loans, and check-cashing services (also a general phrase for fast cash access)."
+      },
+      {
+        term: "Traditional Cache",
+        category: "Geocaching",
+        definition: "The original and most straightforward type of geocache, consisting of a physical container with a logbook hidden at the exact posted coordinates."
+      },
+      {
+        term: "Virtual Cache",
+        category: "Geocaching",
+        definition: "A grandfathered/reward geocache type with no physical container, requiring visitors to visit a specific location and verify their presence (such as answering a question about a landmark or taking a photo)."
+      },
+      {
+        term: "Web Cache",
+        category: "Tech & Computing",
+        definition: "A system or server layer that stores copies of web documents (HTML pages, images) to reduce bandwidth usage and server load."
+      },
+      {
+        term: "Wherigo Cache",
+        category: "Geocaching",
+        definition: "A geocache type that uses a GPS-enabled cartridge to create an interactive, location-based adventure or story that guides players to the final container."
+      }
+    ];
+
+    // Multi-colored fluorescent neon palette
+    const NEON_PALETTE = [
+      {
+        name: "Neon Pink",
+        hex: "#ff2a85",
+        rgb: "255, 42, 133",
+        text: "#ffffff"
+      },
+      {
+        name: "Electric Cyan",
+        hex: "#00f3ff",
+        rgb: "0, 243, 255",
+        text: "#ffffff"
+      },
+      {
+        name: "Neon Lime",
+        hex: "#39ff14",
+        rgb: "57, 255, 20",
+        text: "#ffffff"
+      },
+      {
+        name: "Vibrant Orange",
+        hex: "#ff9100",
+        rgb: "255, 145, 0",
+        text: "#ffffff"
+      },
+      {
+        name: "Neon Purple",
+        hex: "#b829ea",
+        rgb: "184, 41, 234",
+        text: "#ffffff"
+      },
+      {
+        name: "Bright Yellow",
+        hex: "#ffe600",
+        rgb: "255, 230, 0",
+        text: "#ffffff"
+      }
+    ];
+
+    // Application State
+    let bubbleNodes = [];
+    let isOrbitPaused = false;
+    let isStageHovered = false;
+    let isModalOpen = false;
+    let activeTermIndex = 0;
+    let searchQuery = "";
+    let lastTimestamp = 0;
+
+    // DOM Elements
+    const stageEl = document.getElementById("stage");
+    const centerCircleEl = document.getElementById("centerCircle");
+    const bubbleLayerEl = document.getElementById("bubbleLayer");
+    const searchInputEl = document.getElementById("searchInput");
+    const clearSearchBtnEl = document.getElementById("clearSearchBtn");
+    const toggleOrbitBtnEl = document.getElementById("toggleOrbitBtn");
+    const orbitIconEl = document.getElementById("orbitIcon");
+    const orbitLabelEl = document.getElementById("orbitLabel");
+    const resetViewBtnEl = document.getElementById("resetViewBtn");
+
+    // Modal DOM Elements
+    const modalEl = document.getElementById("definitionModal");
+    const modalCardEl = document.getElementById("modalCard");
+    const modalCategoryEl = document.getElementById("modalCategory");
+    const modalTitleEl = document.getElementById("modalTitle");
+    const modalIndexEl = document.getElementById("modalIndex");
+    const modalDefinitionEl = document.getElementById("modalDefinition");
+    const closeModalBtnEl = document.getElementById("closeModalBtn");
+    const prevTermBtnEl = document.getElementById("prevTermBtn");
+    const nextTermBtnEl = document.getElementById("nextTermBtn");
+
+    /**
+     * Builds all 38 floating bubble DOM nodes and assigns them to 3 concentric orbital rings
+     * so they stay balanced, legible, and evenly spaced around the central Geocaching circle.
+     */
+    function createBubbles() {
+      bubbleLayerEl.innerHTML = "";
+      bubbleNodes = [];
+
+      // Distribute 38 bubbles across 3 concentric rings: Inner (10), Middle (13), Outer (15)
+      const ringDistribution = [
+        { ringIndex: 0, count: 10, speed: 0.085 },   // Inner ring clockwise
+        { ringIndex: 1, count: 13, speed: -0.062 },  // Middle ring counter-clockwise
+        { ringIndex: 2, count: 15, speed: 0.048 }    // Outer ring clockwise
+      ];
+
+      let termCursor = 0;
+
+      ringDistribution.forEach((ringSpec) => {
+        for (let i = 0; i < ringSpec.count && termCursor < TERMS_DATA.length; i++) {
+          const idx = termCursor;
+          const item = TERMS_DATA[idx];
+          // Cycle through fluorescent colors offset by ring so adjacent bubbles vary nicely
+          const color = NEON_PALETTE[(idx + ringSpec.ringIndex * 2) % NEON_PALETTE.length];
+
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "neon-bubble";
+          btn.textContent = item.term;
+          btn.setAttribute("aria-label", `${item.term} — click for definition`);
+
+          // Apply fluorescent border, translucent glowing fill, and multi-layered outer neon glow
+          btn.style.border = `2px solid ${color.hex}`;
+          btn.style.background = `radial-gradient(circle at 35% 30%, rgba(${color.rgb}, 0.34) 0%, rgba(${color.rgb}, 0.14) 65%, rgba(7, 11, 20, 0.78) 100%)`;
+          btn.style.boxShadow = `0 0 14px rgba(${color.rgb}, 0.55), inset 0 0 12px rgba(${color.rgb}, 0.35)`;
+          btn.style.color = color.text;
+          btn.style.textShadow = `0 0 8px rgba(${color.rgb}, 0.9), 0 1px 2px rgba(0, 0, 0, 0.9)`;
+
+          // Click & Touch handler
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            openModal(idx);
+          });
+
+          // Hover glow amplification
+          btn.addEventListener("mouseenter", () => {
+            btn.style.boxShadow = `0 0 26px rgba(${color.rgb}, 0.95), 0 0 42px rgba(${color.rgb}, 0.55), inset 0 0 16px rgba(${color.rgb}, 0.5)`;
+          });
+
+          btn.addEventListener("mouseleave", () => {
+            btn.style.boxShadow = `0 0 14px rgba(${color.rgb}, 0.55), inset 0 0 12px rgba(${color.rgb}, 0.35)`;
+          });
+
+          bubbleLayerEl.appendChild(btn);
+
+          const baseAngle = (i / ringSpec.count) * Math.PI * 2;
+          bubbleNodes.push({
+            index: idx,
+            el: btn,
+            data: item,
+            color,
+            ringIndex: ringSpec.ringIndex,
+            angle: baseAngle,
+            angularVelocity: ringSpec.speed,
+            bobPhase: Math.random() * Math.PI * 2,
+            bobSpeed: 1.4 + Math.random() * 1.1,
+            isHovered: false
+          });
+
+          btn.addEventListener("pointerenter", () => {
+            bubbleNodes[idx].isHovered = true;
+          });
+          btn.addEventListener("pointerleave", () => {
+            bubbleNodes[idx].isHovered = false;
+          });
+
+          termCursor++;
+        }
+      });
+    }
+
+    /**
+     * Dynamically computes responsive radii for the central Geocaching circle and
+     * the 3 orbital rings based on current viewport width and height.
+     */
+    function getResponsiveMetrics() {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const minDim = Math.min(vw, vh);
+
+      // Leave comfortable vertical padding for top header and bottom legend
+      const usableHeight = Math.max(320, vh - 125);
+      const usableWidth = Math.max(300, vw - 36);
+      const arenaDiameter = Math.min(usableWidth, usableHeight);
+
+      // Central circle with Geocaching logo
+      const centerDiameter = Math.max(150, Math.min(340, arenaDiameter * 0.42));
+      centerCircleEl.style.width = `${centerDiameter}px`;
+      centerCircleEl.style.height = `${centerDiameter}px`;
+
+      // Three orbital radii from inner to outer
+      const maxRadius = Math.min(usableWidth * 0.44, usableHeight * 0.44);
+      const minRadius = centerDiameter * 0.56;
+
+      const r0 = minRadius + (maxRadius - minRadius) * 0.14;
+      const r1 = minRadius + (maxRadius - minRadius) * 0.56;
+      const r2 = maxRadius;
+
+      // Slight horizontal ellipse stretch on wide desktop screens so bubbles have extra breathing room
+      const aspectX = vw > vh * 1.25 ? Math.min(1.28, vw / (vh * 1.15)) : 1.0;
+
+      // Responsive bubble sizing
+      const bubbleSize = Math.max(66, Math.min(104, minDim * 0.115));
+      const fontSize = Math.max(10, Math.min(13, bubbleSize * 0.132));
+
+      return {
+        radii: [r0, r1, r2],
+        aspectX,
+        bubbleSize,
+        fontSize
+      };
+    }
+
+    /**
+     * Applies sizing to bubbles whenever the window resizes.
+     */
+    function applyResponsiveSizes() {
+      const { bubbleSize, fontSize } = getResponsiveMetrics();
+      bubbleNodes.forEach((node) => {
+        node.el.style.width = `${bubbleSize}px`;
+        node.el.style.height = `${bubbleSize}px`;
+        node.el.style.fontSize = `${fontSize}px`;
+      });
+    }
+
+    /**
+     * Main animation loop driving circular orbital motion and gentle floating bobbing.
+     */
+    function animateOrbit(timestamp) {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const dt = Math.min(0.05, (timestamp - lastTimestamp) / 1000);
+      lastTimestamp = timestamp;
+
+      const { radii, aspectX } = getResponsiveMetrics();
+
+      // Determine effective speed multiplier (paused if user toggled pause or opened modal; slowed on hover)
+      let speedFactor = 1;
+      if (isOrbitPaused || isModalOpen) {
+        speedFactor = 0;
+      } else if (isStageHovered) {
+        speedFactor = 0.28;
+      }
+
+      const timeSec = timestamp * 0.001;
+
+      bubbleNodes.forEach((node) => {
+        node.angle += node.angularVelocity * speedFactor * dt;
+
+        const baseR = radii[node.ringIndex];
+        // Gentle radial & vertical floating wave like buoyant bubbles
+        const radialBob = Math.sin(timeSec * node.bobSpeed + node.bobPhase) * 6;
+        const floatY = Math.cos(timeSec * (node.bobSpeed * 0.85) + node.bobPhase) * 5;
+
+        const currentR = baseR + radialBob;
+        const x = Math.cos(node.angle) * currentR * aspectX;
+        const y = Math.sin(node.angle) * currentR + floatY;
+
+        const scale = node.isHovered ? 1.18 : 1;
+        node.el.style.transform = `translate(calc(-50% + ${x.toFixed(1)}px), calc(-50% + ${y.toFixed(1)}px)) scale(${scale})`;
+      });
+
+      requestAnimationFrame(animateOrbit);
+    }
+
+    /**
+     * Opens the glassmorphic neon definition modal for a specific term index.
+     */
+    function openModal(index) {
+      activeTermIndex = (index + TERMS_DATA.length) % TERMS_DATA.length;
+      const node = bubbleNodes[activeTermIndex];
+      const { term, category, definition } = node.data;
+      const color = node.color;
+
+      modalTitleEl.textContent = term;
+      modalTitleEl.style.textShadow = `0 0 18px rgba(${color.rgb}, 0.55)`;
+      modalDefinitionEl.textContent = definition;
+      modalIndexEl.textContent = `Term ${activeTermIndex + 1} of ${TERMS_DATA.length}`;
+
+      // Style modal border & category pill to match the clicked bubble's fluorescent color
+      modalCardEl.style.borderColor = color.hex;
+      modalCardEl.style.boxShadow = `0 0 40px rgba(${color.rgb}, 0.35), inset 0 0 24px rgba(${color.rgb}, 0.12)`;
+
+      modalCategoryEl.textContent = category;
+      modalCategoryEl.style.color = color.hex;
+      modalCategoryEl.style.borderColor = `rgba(${color.rgb}, 0.55)`;
+      modalCategoryEl.style.backgroundColor = `rgba(${color.rgb}, 0.14)`;
+
+      // Re-trigger entrance animation
+      modalCardEl.classList.remove("modal-animate");
+      void modalCardEl.offsetWidth;
+      modalCardEl.classList.add("modal-animate");
+
+      modalEl.classList.remove("hidden");
+      modalEl.classList.add("flex");
+      isModalOpen = true;
+
+      // Signal the Frog celebrates when a Geocaching term is explored!
+      if (category === "Geocaching" && typeof triggerSignalCelebration === "function") {
+        triggerSignalCelebration(`Nice find! "${term}" is a classic Geocaching term!`);
+      }
+    }
+
+    /**
+     * Closes the definition modal and resumes orbital motion.
+     */
+    function closeModal() {
+      modalEl.classList.add("hidden");
+      modalEl.classList.remove("flex");
+      isModalOpen = false;
+    }
+
+    /**
+     * Filters/highlights bubbles matching the user's search query.
+     */
+    function updateSearchFilter(rawQuery) {
+      searchQuery = rawQuery.trim().toLowerCase();
+      clearSearchBtnEl.classList.toggle("hidden", searchQuery.length === 0);
+
+      bubbleNodes.forEach((node) => {
+        if (!searchQuery) {
+          node.el.classList.remove("dimmed", "highlighted");
+          return;
+        }
+        const matchTerm = node.data.term.toLowerCase().includes(searchQuery);
+        const matchCat = node.data.category.toLowerCase().includes(searchQuery);
+        const matchDef = node.data.definition.toLowerCase().includes(searchQuery);
+
+        if (matchTerm || matchCat || matchDef) {
+          node.el.classList.remove("dimmed");
+          node.el.classList.add("highlighted");
+        } else {
+          node.el.classList.add("dimmed");
+          node.el.classList.remove("highlighted");
+        }
+      });
+    }
+
+    // Event Listeners
+    toggleOrbitBtnEl.addEventListener("click", () => {
+      isOrbitPaused = !isOrbitPaused;
+      toggleOrbitBtnEl.setAttribute("aria-pressed", String(isOrbitPaused));
+      orbitIconEl.textContent = isOrbitPaused ? "▶" : "❚❚";
+      orbitLabelEl.textContent = isOrbitPaused ? "Resume" : "Pause";
+    });
+
+    resetViewBtnEl.addEventListener("click", () => {
+      searchInputEl.value = "";
+      updateSearchFilter("");
+      if (isOrbitPaused) {
+        isOrbitPaused = false;
+        toggleOrbitBtnEl.setAttribute("aria-pressed", "false");
+        orbitIconEl.textContent = "❚❚";
+        orbitLabelEl.textContent = "Pause";
+      }
+      if (typeof triggerSignalCelebration === "function") {
+        triggerSignalCelebration("Signal locked! Orbit and filters reset.");
+      }
+    });
+
+    bubbleLayerEl.addEventListener("pointerenter", () => {
+      isStageHovered = true;
+    });
+
+    bubbleLayerEl.addEventListener("pointerleave", () => {
+      isStageHovered = false;
+    });
+
+    searchInputEl.addEventListener("input", (e) => {
+      updateSearchFilter(e.target.value);
+    });
+
+    clearSearchBtnEl.addEventListener("click", () => {
+      searchInputEl.value = "";
+      updateSearchFilter("");
+      searchInputEl.focus();
+    });
+
+    closeModalBtnEl.addEventListener("click", closeModal);
+
+    modalEl.addEventListener("click", (e) => {
+      if (e.target === modalEl) {
+        closeModal();
+      }
+    });
+
+    prevTermBtnEl.addEventListener("click", () => {
+      openModal(activeTermIndex - 1);
+    });
+
+    nextTermBtnEl.addEventListener("click", () => {
+      openModal(activeTermIndex + 1);
+    });
+
+    // Keyboard navigation (Escape to close, Left/Right arrows while modal is open)
+    window.addEventListener("keydown", (e) => {
+      if (!isModalOpen) return;
+      if (e.key === "Escape") {
+        closeModal();
+      } else if (e.key === "ArrowLeft") {
+        openModal(activeTermIndex - 1);
+      } else if (e.key === "ArrowRight") {
+        openModal(activeTermIndex + 1);
+      }
+    });
+
+    window.addEventListener("resize", applyResponsiveSizes);
+
+    // =========================================================================
+    // 3D "SIGNAL THE FROG" MASCOT (THREE.JS) IN BOTTOM-RIGHT CORNER
+    // =========================================================================
+    const signalContainerEl = document.getElementById("signalMascotContainer");
+    const signalCanvasEl = document.getElementById("signalCanvas");
+    const signalSpeechEl = document.getElementById("signalSpeechBubble");
+
+    const SIGNAL_QUOTES = [
+      "TFTC! Tap any glowing bubble to uncover its definition!",
+      "Signal locked! Ready to find some geocaches?",
+      "Remember: Cache In, Trash Out (CITO)!",
+      "Don't forget your TOTTs! You never know if you'll need one.",
+      "Every 'GC' code leads to a new outdoor adventure!",
+      "Need a hint? Check the Cache Page or ask a fellow cacher!",
+      "From Traditional to EarthCache—explore all 38 terms!",
+      "Make sure to visit Geocaching HQ in Seattle!"
+    ];
+
+    let quoteCursor = 0;
+    let speechHideTimer = null;
+    let triggerSignalCelebration = null;
+
+    function showSignalSpeech(customText) {
+      if (!signalSpeechEl) return;
+      if (customText) {
+        signalSpeechEl.textContent = customText;
+      } else {
+        signalSpeechEl.textContent = SIGNAL_QUOTES[quoteCursor % SIGNAL_QUOTES.length];
+        quoteCursor++;
+      }
+      signalSpeechEl.classList.add("visible");
+      clearTimeout(speechHideTimer);
+      speechHideTimer = setTimeout(() => {
+        signalSpeechEl.classList.remove("visible");
+      }, 4600);
+    }
+
+    function initSignalTheFrog3D() {
+      if (typeof THREE === "undefined" || !signalCanvasEl || !signalContainerEl) return;
+
+      const scene = new THREE.Scene();
+
+      const camera = new THREE.PerspectiveCamera(36, 176 / 205, 0.1, 100);
+      camera.position.set(0, 1.35, 5.1);
+      camera.lookAt(0, 1.05, 0);
+
+      const renderer = new THREE.WebGLRenderer({
+        canvas: signalCanvasEl,
+        alpha: true,
+        antialias: true,
+        powerPreference: "high-performance"
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.outputEncoding = THREE.sRGBEncoding;
+
+      // Studio & Neon Rim Lighting
+      const ambientLight = new THREE.AmbientLight(0xdbeafe, 0.85);
+      scene.add(ambientLight);
+
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.05);
+      keyLight.position.set(2.5, 4.5, 3.8);
+      scene.add(keyLight);
+
+      const rimLightCyan = new THREE.PointLight(0x00f3ff, 1.25, 10);
+      rimLightCyan.position.set(-2.6, 2.2, -1.8);
+      scene.add(rimLightCyan);
+
+      const rimLightGreen = new THREE.PointLight(0x39ff14, 1.1, 8);
+      rimLightGreen.position.set(2.2, 2.8, -1.2);
+      scene.add(rimLightGreen);
+
+      // Reusable PBR Materials
+      const frogGreenMat = new THREE.MeshStandardMaterial({
+        color: 0x58cc02,
+        roughness: 0.36,
+        metalness: 0.06
+      });
+      const frogBellyMat = new THREE.MeshStandardMaterial({
+        color: 0xbef264,
+        roughness: 0.45
+      });
+      const explorerBlueMat = new THREE.MeshStandardMaterial({
+        color: 0x0284c7,
+        roughness: 0.48,
+        metalness: 0.1
+      });
+      const explorerVestTrimMat = new THREE.MeshStandardMaterial({
+        color: 0xfacc15,
+        roughness: 0.35,
+        metalness: 0.25
+      });
+      const eyeWhiteMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.15
+      });
+      const pupilBlackMat = new THREE.MeshStandardMaterial({
+        color: 0x090d16,
+        roughness: 0.1
+      });
+      const chromeMat = new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        roughness: 0.2,
+        metalness: 0.85
+      });
+      const antennaGlowMat = new THREE.MeshStandardMaterial({
+        color: 0x39ff14,
+        emissive: 0x39ff14,
+        emissiveIntensity: 0.95,
+        roughness: 0.2
+      });
+      const signalWaveMat = new THREE.MeshBasicMaterial({
+        color: 0x00f3ff,
+        transparent: true,
+        opacity: 0.7,
+        side: THREE.DoubleSide
+      });
+
+      // Root character group
+      const frogRoot = new THREE.Group();
+      scene.add(frogRoot);
+
+      // 1. Glowing Compass Pedestal Base
+      const pedestalGroup = new THREE.Group();
+      const turfDisc = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.95, 1.05, 0.14, 32),
+        new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.7 })
+      );
+      turfDisc.position.y = 0.07;
+      pedestalGroup.add(turfDisc);
+
+      const neonRing = new THREE.Mesh(
+        new THREE.TorusGeometry(1.03, 0.032, 12, 48),
+        new THREE.MeshBasicMaterial({ color: 0x39ff14 })
+      );
+      neonRing.rotation.x = Math.PI / 2;
+      neonRing.position.y = 0.11;
+      pedestalGroup.add(neonRing);
+      frogRoot.add(pedestalGroup);
+
+      // 2. Character Body Assembly (hops & breathes)
+      const bodyAssembly = new THREE.Group();
+      bodyAssembly.position.y = 0.14;
+      frogRoot.add(bodyAssembly);
+
+      // Legs & Webbed Frog Feet
+      [-0.32, 0.32].forEach((xPos) => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.34, 16), frogGreenMat);
+        leg.position.set(xPos, 0.22, 0.02);
+        bodyAssembly.add(leg);
+
+        const foot = new THREE.Mesh(new THREE.SphereGeometry(0.22, 18, 14), frogGreenMat);
+        foot.scale.set(1.05, 0.42, 1.45);
+        foot.position.set(xPos, 0.07, 0.12);
+        bodyAssembly.add(foot);
+      });
+
+      // Torso in Explorer Shirt
+      const torso = new THREE.Mesh(new THREE.SphereGeometry(0.54, 24, 20), explorerBlueMat);
+      torso.scale.set(1.02, 1.12, 0.88);
+      torso.position.set(0, 0.78, 0);
+      bodyAssembly.add(torso);
+
+      // Collar & Geocaching Chest Badge
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.045, 10, 24), explorerVestTrimMat);
+      collar.rotation.x = Math.PI / 2 + 0.18;
+      collar.position.set(0, 1.24, 0.04);
+      bodyAssembly.add(collar);
+
+      const badge = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.06), explorerVestTrimMat);
+      badge.rotation.z = Math.PI / 4;
+      badge.position.set(0.21, 0.94, 0.45);
+      bodyAssembly.add(badge);
+
+      // 3. Left Arm (holding mini handheld GPS device) & Right Arm (waving!)
+      const leftArmGroup = new THREE.Group();
+      leftArmGroup.position.set(-0.54, 1.06, 0.05);
+      const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.44, 14), frogGreenMat);
+      leftArm.position.set(-0.08, -0.18, 0.12);
+      leftArm.rotation.set(0.55, 0, 0.35);
+      leftArmGroup.add(leftArm);
+
+      // Mini Handheld GPS Receiver
+      const gpsBody = new THREE.Mesh(
+        new THREE.BoxGeometry(0.22, 0.34, 0.09),
+        new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.35 })
+      );
+      gpsBody.position.set(-0.14, -0.34, 0.32);
+      gpsBody.rotation.set(-0.45, 0.25, 0.1);
+      leftArmGroup.add(gpsBody);
+
+      const gpsScreen = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.15, 0.18),
+        new THREE.MeshBasicMaterial({ color: 0x39ff14 })
+      );
+      gpsScreen.position.set(-0.14, -0.32, 0.37);
+      gpsScreen.rotation.set(-0.45, 0.25, 0.1);
+      leftArmGroup.add(gpsScreen);
+      bodyAssembly.add(leftArmGroup);
+
+      // Right Waving Arm
+      const rightArmGroup = new THREE.Group();
+      rightArmGroup.position.set(0.54, 1.08, 0.04);
+      const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.46, 14), frogGreenMat);
+      rightArm.position.set(0.14, 0.16, 0.08);
+      rightArm.rotation.z = -0.55;
+      rightArmGroup.add(rightArm);
+
+      const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 14), frogGreenMat);
+      rightHand.scale.set(1.1, 1.15, 0.65);
+      rightHand.position.set(0.27, 0.38, 0.12);
+      rightArmGroup.add(rightHand);
+      bodyAssembly.add(rightArmGroup);
+
+      // 4. Head Group (tracks cursor slightly)
+      const headGroup = new THREE.Group();
+      headGroup.position.set(0, 1.56, 0.04);
+      bodyAssembly.add(headGroup);
+
+      // Wide Frog Head
+      const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.56, 28, 22), frogGreenMat);
+      headMesh.scale.set(1.24, 0.86, 1.02);
+      headGroup.add(headMesh);
+
+      // Lower Chin / Cheek Accent
+      const chinMesh = new THREE.Mesh(new THREE.SphereGeometry(0.46, 22, 16), frogBellyMat);
+      chinMesh.scale.set(1.18, 0.55, 0.96);
+      chinMesh.position.set(0, -0.16, 0.08);
+      headGroup.add(chinMesh);
+
+      // Cheerful Wide Smile Arc
+      const smileCurve = new THREE.TorusGeometry(0.36, 0.024, 10, 28, Math.PI * 0.78);
+      const smileMesh = new THREE.Mesh(smileCurve, pupilBlackMat);
+      smileMesh.rotation.z = Math.PI * 1.11;
+      smileMesh.rotation.x = -0.22;
+      smileMesh.position.set(0, -0.02, 0.51);
+      headGroup.add(smileMesh);
+
+      // Bulging Expressive Eyes on Top of Head
+      const leftPupilGroup = new THREE.Group();
+      const rightPupilGroup = new THREE.Group();
+      const eyelids = [];
+
+      [
+        { x: -0.28, pupilHolder: leftPupilGroup },
+        { x: 0.28, pupilHolder: rightPupilGroup }
+      ].forEach(({ x, pupilHolder }) => {
+        const eyeSocket = new THREE.Group();
+        eyeSocket.position.set(x, 0.44, 0.16);
+        headGroup.add(eyeSocket);
+
+        // Green outer eye bump
+        const brow = new THREE.Mesh(new THREE.SphereGeometry(0.23, 20, 18), frogGreenMat);
+        brow.position.set(0, 0.02, -0.03);
+        eyeSocket.add(brow);
+
+        // White eyeball
+        const eyeball = new THREE.Mesh(new THREE.SphereGeometry(0.205, 22, 20), eyeWhiteMat);
+        eyeball.position.set(0, 0, 0.03);
+        eyeSocket.add(eyeball);
+
+        // Pupil + Catchlight
+        pupilHolder.position.set(0, 0, 0.21);
+        const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.095, 16, 16), pupilBlackMat);
+        pupil.scale.set(1, 1, 0.5);
+        pupilHolder.add(pupil);
+
+        const catchlight = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 10), eyeWhiteMat);
+        catchlight.position.set(0.035, 0.038, 0.04);
+        pupilHolder.add(catchlight);
+        eyeSocket.add(pupilHolder);
+
+        // Blinking Eyelid Hemisphere
+        const eyelid = new THREE.Mesh(
+          new THREE.SphereGeometry(0.215, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.52),
+          frogGreenMat
+        );
+        eyelid.position.set(0, 0, 0.03);
+        eyelid.scale.y = 0.05;
+        eyeSocket.add(eyelid);
+        eyelids.push(eyelid);
+      });
+
+      // 5. Signature Metallic GPS Antenna & Pulsing Signal Rings
+      const antennaGroup = new THREE.Group();
+      antennaGroup.position.set(0, 0.46, -0.04);
+      headGroup.add(antennaGroup);
+
+      const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.042, 0.55, 12), chromeMat);
+      stalk.position.y = 0.27;
+      antennaGroup.add(stalk);
+
+      // Coiled spring rings on antenna
+      for (let s = 0; s < 3; s++) {
+        const coil = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.015, 8, 18), chromeMat);
+        coil.rotation.x = Math.PI / 2;
+        coil.position.y = 0.12 + s * 0.065;
+        antennaGroup.add(coil);
+      }
+
+      // Glowing Green Signal Tip Orb
+      const tipOrb = new THREE.Mesh(new THREE.SphereGeometry(0.11, 20, 20), antennaGlowMat);
+      tipOrb.position.y = 0.58;
+      antennaGroup.add(tipOrb);
+
+      // Expanding Wireless Signal Wave Rings
+      const signalWave1 = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.195, 28), signalWaveMat.clone());
+      signalWave1.position.y = 0.58;
+      antennaGroup.add(signalWave1);
+
+      const signalWave2 = new THREE.Mesh(new THREE.RingGeometry(0.25, 0.28, 28), signalWaveMat.clone());
+      signalWave2.position.y = 0.58;
+      antennaGroup.add(signalWave2);
+
+      // Mouse / Touch Cursor Tracking
+      let targetLookX = 0;
+      let targetLookY = 0;
+      window.addEventListener("pointermove", (e) => {
+        const rect = signalContainerEl.getBoundingClientRect();
+        const centerX = rect.left + rect.width * 0.5;
+        const centerY = rect.top + rect.height * 0.4;
+        const dx = (e.clientX - centerX) / Math.max(window.innerWidth * 0.5, 200);
+        const dy = (e.clientY - centerY) / Math.max(window.innerHeight * 0.5, 200);
+        targetLookX = Math.max(-1, Math.min(1, dx));
+        targetLookY = Math.max(-1, Math.min(1, dy));
+      });
+
+      // Celebration Hop & Spin State
+      let celebrateProgress = 0;
+      let isCelebrating = false;
+
+      triggerSignalCelebration = function (customMessage) {
+        isCelebrating = true;
+        celebrateProgress = 0;
+        showSignalSpeech(customMessage);
+      };
+
+      signalContainerEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        triggerSignalCelebration();
+      });
+
+      signalContainerEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          triggerSignalCelebration();
+        }
+      });
+
+      // Responsive Canvas Resize Helper
+      function resizeSignalRenderer() {
+        const w = signalContainerEl.clientWidth || 176;
+        const h = signalContainerEl.clientHeight || 205;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h, false);
+      }
+      resizeSignalRenderer();
+      window.addEventListener("resize", resizeSignalRenderer);
+
+      // Greet user gently 1.4s after load
+      setTimeout(() => {
+        showSignalSpeech("TFTC! Tap any glowing bubble to uncover its definition!");
+      }, 1400);
+
+      // 3D Render Loop
+      let prevTime = performance.now();
+      let blinkTimer = 0;
+
+      function animateSignal(now) {
+        const dt = Math.min(0.05, (now - prevTime) / 1000);
+        prevTime = now;
+        const t = now * 0.001;
+
+        // Idle gentle breathing & antenna sway
+        bodyAssembly.position.y = 0.14 + Math.sin(t * 2.6) * 0.025;
+        antennaGroup.rotation.z = Math.sin(t * 3.2) * 0.09;
+
+        // Waving right arm
+        const waveSpeed = isCelebrating ? 14 : 4.2;
+        const waveAmp = isCelebrating ? 0.42 : 0.18;
+        rightArmGroup.rotation.z = Math.sin(t * waveSpeed) * waveAmp;
+
+        // Celebration Hop & 360 Spin
+        if (isCelebrating) {
+          celebrateProgress += dt * 1.65;
+          if (celebrateProgress >= 1) {
+            isCelebrating = false;
+            celebrateProgress = 0;
+            bodyAssembly.rotation.y = 0;
+          } else {
+            const jumpArc = Math.sin(celebrateProgress * Math.PI);
+            bodyAssembly.position.y = 0.14 + jumpArc * 0.55;
+            bodyAssembly.rotation.y = celebrateProgress * Math.PI * 2;
+          }
+        }
+
+        // Smooth Head & Pupil Cursor Tracking
+        headGroup.rotation.y += (targetLookX * 0.34 - headGroup.rotation.y) * 0.1;
+        headGroup.rotation.x += (targetLookY * 0.22 - headGroup.rotation.x) * 0.1;
+
+        const pupilOffsetX = targetLookX * 0.045;
+        const pupilOffsetY = -targetLookY * 0.04;
+        leftPupilGroup.position.x = pupilOffsetX;
+        leftPupilGroup.position.y = pupilOffsetY;
+        rightPupilGroup.position.x = pupilOffsetX;
+        rightPupilGroup.position.y = pupilOffsetY;
+
+        // Periodic Natural Blink
+        blinkTimer += dt;
+        let lidScale = 0.05;
+        if (blinkTimer > 3.6) {
+          const blinkPhase = (blinkTimer - 3.6) / 0.18;
+          if (blinkPhase < 1) {
+            lidScale = 0.05 + Math.sin(blinkPhase * Math.PI) * 0.95;
+          } else {
+            blinkTimer = 0;
+          }
+        }
+        eyelids.forEach((lid) => {
+          lid.scale.y = lidScale;
+        });
+
+        // Antenna Tip Glow & Expanding Wireless Signal Waves
+        const pulse = (t * 1.1) % 1;
+        const waveScale1 = 0.8 + pulse * 1.35;
+        signalWave1.scale.set(waveScale1, waveScale1, 1);
+        signalWave1.material.opacity = (1 - pulse) * 0.75;
+
+        const pulse2 = ((t * 1.1) + 0.5) % 1;
+        const waveScale2 = 0.8 + pulse2 * 1.35;
+        signalWave2.scale.set(waveScale2, waveScale2, 1);
+        signalWave2.material.opacity = (1 - pulse2) * 0.65;
+
+        tipOrb.scale.setScalar(1 + Math.sin(t * 6) * 0.08);
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(animateSignal);
+      }
+
+      requestAnimationFrame(animateSignal);
+    }
+
+    // Initialize on load
+    window.onload = function () {
+      createBubbles();
+      applyResponsiveSizes();
+      requestAnimationFrame(animateOrbit);
+      initSignalTheFrog3D();
+    };
+  </script>
+</body>
+</html>
